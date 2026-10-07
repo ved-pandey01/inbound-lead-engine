@@ -1,0 +1,1507 @@
+{
+  "name": "Inbound Lead Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 877793747,
+          "mode": "list",
+          "cachedResultName": "leads-template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit#gid=877793747"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "id": "71c3a414-b659-4f04-ad1c-014706cb7880",
+      "name": "Watch Leads Sheet",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        144
+      ],
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "sZx1XAC0eoL7NH09",
+          "name": "Google Sheets Trigger account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": " https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"parts\": [\n        {\n          \"text\": \"You are scoring a sales lead. Company: {{$json[\"Company\"]}}\\nJob Title: {{$json[\"Job Title\"]}}\\nIndustry: {{$json[\"Industry\"]}}\\nHeadcount: {{$json[\"Headcount\"]}}\\nCompany Summary: {{$json[\"Company Summary\"]}}\\n\\nReturn ONLY valid JSON with exactly these keys: score (integer 1-100), reasoning (one sentence explaining the score), qualified (true or false).\"\n        }\n      ]\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "1f77cc39-d4d2-457f-bc52-63acd053b40a",
+      "name": "AI Score Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        32,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.parse($json.candidates[0].content.parts[0].text.replace(/```json\\n?/g, '').replace(/```/g, '').trim()) }}",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "af417338-ee8e-486c-bc53-77d5a6b1cdf1",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [
+        256,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json[\"score\"]}}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              },
+              "id": "c39d2054-5de5-4215-8eba-cd2e17646ad1"
+            },
+            {
+              "leftValue": "={{$json[\"qualified\"]}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              },
+              "id": "877c4e14-19b0-47ae-b436-7208f589fa80"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "94738aff-ff16-47a7-beda-8fd4457c192d",
+      "name": "Hot or Cold?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        480,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=panved12@gmail.com",
+        "subject": "=Quick question about {{$node[\"Watch Leads Sheet\"].json[\"Company\"]}}",
+        "message": "=Hi {{$node[\"Watch Leads Sheet\"].json[\"Name\"]}},\n\n{{$node[\"Watch Leads Sheet\"].json[\"Icebreaker\"]}}\n\nWorth a quick chat this week?\n\nBest,\nVed",
+        "options": {}
+      },
+      "id": "6b017237-03e9-4009-8268-f3d848b0362b",
+      "name": "Send Outreach Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        704,
+        384
+      ],
+      "webhookId": "413c6862-b9bb-4379-9766-d0d39fce8a22",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VP8FqX5bGYfp6HWs",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "appToken",
+        "email": "={{ $node[\"Watch Leads Sheet\"].json[\"Name\"].toLowerCase().replace(/ /g, '.') }}@placeholder-lead.com",
+        "additionalFields": {
+          "firstName": "={{ $node[\"Watch Leads Sheet\"].json[\"Name\"] }}"
+        },
+        "options": {}
+      },
+      "id": "5f2f6c41-c1c2-40ac-a641-9772fa73bddc",
+      "name": "Log Contact in HubSpot",
+      "type": "n8n-nodes-base.hubspot",
+      "typeVersion": 2,
+      "position": [
+        944,
+        384
+      ],
+      "credentials": {
+        "hubspotAppToken": {
+          "id": "rAzpY5RMH7wLTZXR",
+          "name": "HubSpot Service Key account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "id": "9f6b88a5-cf62-41d2-ab47-987b7195830f",
+      "name": "Wait 2 Days",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1728,
+        384
+      ],
+      "webhookId": "f540df63-6216-4426-b6b1-a5ea47a0ba2c"
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "get",
+        "threadId": "={{ $node[\"Send Outreach Email\"].json[\"threadId\"] }} ",
+        "options": {}
+      },
+      "id": "212bf54d-29b1-41c1-8765-4511ad86ffac",
+      "name": "Check for Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        384
+      ],
+      "webhookId": "e627b1a4-ba8e-4622-ab2f-45b4d1f13606",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VP8FqX5bGYfp6HWs",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{$json[\"messages\"].length}}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "id": "fcf38eed-bcf3-42f8-bef6-ce7a617a70c0"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6f635d8c-f17b-4355-b348-8947f6984cf7",
+      "name": "Did They Reply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "=panved12@gmail.com ",
+        "subject": "Following up",
+        "message": "Hi {{$node[\"Watch Leads Sheet\"].json[\"Name\"]}}, just floating this back to the top of your inbox in case it got buried. Worth a quick chat?",
+        "options": {}
+      },
+      "id": "4d7c073f-4681-4a8c-8dab-bd55e04b59d8",
+      "name": "Send Follow-up Nudge",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        496
+      ],
+      "webhookId": "a15d8cef-d307-4549-9512-9787fe09e950",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VP8FqX5bGYfp6HWs",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 15,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -192,
+        144
+      ],
+      "id": "e219d934-f337-4270-94ef-c0254a266b6f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  contents: [{\n    parts: [{\n      text: `You are Ved, a business development rep. A lead replied to your outreach email. Write a short, friendly reply (max 80 words) that responds to what they said and suggests a 15-minute call this week. Plain text only, no subject line, sign off as \"Ved\".\n\nMy original email:\n${$json.messages[0].snippet}\n\nTheir reply:\n${$json.messages[$json.messages.length - 1].snippet.split(/\\sOn .{0,100}wrote:/)[0]}`\n    }]\n  }]\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2496,
+        240
+      ],
+      "id": "76079ae5-ccc6-43d7-b311-bacf5dec82fc",
+      "name": "AI Draft Reply"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Did They Reply?').item.json.messages.last().id }}",
+        "emailType": "text",
+        "message": "={{$('AI Draft Reply').item.json.candidates[0].content.parts[0].text}}",
+        "options": {
+          "replyToSenderOnly": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2720,
+        240
+      ],
+      "id": "56ba98c8-db7b-4930-b0a1-91c45ec8b8f0",
+      "name": "Send AI Reply",
+      "webhookId": "1c1c51df-1e89-4ad0-ab0f-3fa0caf3d0cc",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "VP8FqX5bGYfp6HWs",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/notes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  properties: {\n    hs_timestamp: new Date().toISOString(),\n    hs_note_body: \"Lead replied: \" + $('Did They Reply?').item.json.messages.last().snippet.split(' On ')[0] + \"\\n\\nAI reply sent: \" + $('AI Draft Reply').item.json.candidates[0].content.parts[0].text\n  },\n  associations: [{\n    to: { id: $('Log Contact in HubSpot').item.json.vid },\n    types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: 202 }]\n  }]\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2944,
+        240
+      ],
+      "id": "37a8d3b9-01e9-44b7-a004-5e65d61ef679",
+      "name": "Log Reply in HubSpot",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IGi8GGQ8blS04Nay",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/notes",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  properties: {\n    hs_timestamp: new Date().toISOString(),\n    hs_note_body: \"AI Lead Score: \" + $json.properties.lead_score + \"\\n\\nReasoning: \" + $json.properties.lead_score_reasoning\n  },\n  associations: [{\n    to: { id: $json.id },\n    types: [{ associationCategory: \"HUBSPOT_DEFINED\", associationTypeId: 202 }]\n  }]\n}) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1456,
+        384
+      ],
+      "id": "7fd5b687-006b-4672-847c-61aff681cd12",
+      "name": "Add Score Note",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IGi8GGQ8blS04Nay",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 877793747,
+          "mode": "list",
+          "cachedResultName": "leads-template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit#gid=877793747"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LinkedIn URL": "={{ $('Watch Leads Sheet').item.json['LinkedIn URL'] }}",
+            "Status": "Cold - Not contacted"
+          },
+          "matchingColumns": [
+            "LinkedIn URL"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date Added",
+              "displayName": "Date Added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Headcount",
+              "displayName": "Headcount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company Summary",
+              "displayName": "Company Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Icebreaker",
+              "displayName": "Icebreaker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        704,
+        176
+      ],
+      "id": "128abd68-071f-47db-8293-4e2e11ee0d83",
+      "name": "Mark Cold Leads",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1veIL2lvLghytH9V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.hubapi.com/crm/v3/objects/contacts/{{ $json[\"vid\"] }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"properties\": { \"lead_score\": \"{{ $node[\"Parse AI Response\"].json[\"score\"] }}\", \"lead_score_reasoning\": \"{{ $node[\"Parse AI Response\"].json[\"reasoning\"] }}\" } }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1216,
+        384
+      ],
+      "id": "7ade89fc-f43c-4694-85a7-ce0cb781fe2e",
+      "name": "Write AI Score to HubSpot",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IGi8GGQ8blS04Nay",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 877793747,
+          "mode": "list",
+          "cachedResultName": "leads-template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit#gid=877793747"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LinkedIn URL": "={{ $('Watch Leads Sheet').item.json['LinkedIn URL'] }}",
+            "Status": "Nudged – no reply"
+          },
+          "matchingColumns": [
+            "LinkedIn URL"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date Added",
+              "displayName": "Date Added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Headcount",
+              "displayName": "Headcount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company Summary",
+              "displayName": "Company Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Icebreaker",
+              "displayName": "Icebreaker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2720,
+        496
+      ],
+      "id": "07cc5534-8931-4107-8a39-5646d42258cf",
+      "name": "Mark Nudged",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1veIL2lvLghytH9V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit?pli=1&gid=877793747#gid=877793747",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 877793747,
+          "mode": "list",
+          "cachedResultName": "leads-template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit#gid=877793747"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LinkedIn URL": "={{ $('Watch Leads Sheet').item.json['LinkedIn URL'] }}",
+            "Status": "Contacted"
+          },
+          "matchingColumns": [
+            "LinkedIn URL"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date Added",
+              "displayName": "Date Added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Headcount",
+              "displayName": "Headcount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company Summary",
+              "displayName": "Company Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Icebreaker",
+              "displayName": "Icebreaker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        688,
+        -64
+      ],
+      "id": "fe1b96c1-1846-474e-a462-27dcf8d432e1",
+      "name": "Mark Hot Leads Contacted",
+      "alwaysOutputData": false,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1veIL2lvLghytH9V",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 1. Intake & AI Scoring\nNew leads are scored 1–100 by Gemini against ICP rules, with written reasoning.",
+        "height": 144,
+        "width": 304,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        -128
+      ],
+      "id": "78241936-81f9-4299-be5f-532b99385c02",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## 2. Routing\nScore ≥ 70 and qualified = hot lead. Status is written back to the Google Sheet.",
+        "width": 288
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        944,
+        -32
+      ],
+      "id": "860b4ad3-5042-4352-9f3b-9874d6d24bfb",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 3. Outreach & CRM\nPersonalised email sent, HubSpot contact created, AI score and reasoning logged.",
+        "width": 320,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        784,
+        608
+      ],
+      "id": "c74c4cc9-306e-4b06-aeca-7274cb03f29a",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 4. Follow-up\nReply → AI drafts and sends a response, logged in HubSpot. No reply → one nudge.",
+        "width": 304,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        128
+      ],
+      "id": "7ef74521-2d7b-4660-909f-578ddbfffeaf",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=sqlite3 \"$HOME/lead-engine/leads.db\" <<'SQL'\nUPDATE leads\nSET status = 'Cold - Not contacted',\n    updated_at = CURRENT_TIMESTAMP\nWHERE linkedin_url = '{{ String($('Loop Over Items').item.json['LinkedIn URL'] ?? '').replace(/'/g, \"''\") }}';\nSQL"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        928,
+        176
+      ],
+      "id": "89139035-4f15-4422-9c0c-c590201cb937",
+      "name": "SQLite – Mark Cold"
+    },
+    {
+      "parameters": {
+        "command": "=sqlite3 \"$HOME/lead-engine/leads.db\" <<'SQL'\nUPDATE leads\nSET status = 'Contacted',\n    contacted_at = CURRENT_TIMESTAMP,\n    updated_at = CURRENT_TIMESTAMP\nWHERE linkedin_url = '{{ String($('Loop Over Items').item.json['LinkedIn URL'] ?? '').replace(/'/g, \"''\") }}';\nSQL"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        512,
+        688
+      ],
+      "id": "fadfe5e0-01b7-4a34-854c-545ba26be3cd",
+      "name": "SQLite – Contacted"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=sqlite3 \"$HOME/lead-engine/leads.db\" <<'SQL'\nUPDATE leads\nSET status = 'Replied',\n    replied_at = CURRENT_TIMESTAMP,\n    updated_at = CURRENT_TIMESTAMP\nWHERE linkedin_url = '{{ String($json['LinkedIn URL'] ?? '').replace(/'/g, \"''\") }}';"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3376,
+        240
+      ],
+      "id": "f797f620-3e50-4326-967a-df3bc53214ea",
+      "name": "SQLite – Replied"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=sqlite3 \"$HOME/lead-engine/leads.db\" <<'SQL'\nUPDATE leads\nSET status = 'Nudged - no reply',\n    updated_at = CURRENT_TIMESTAMP\nWHERE linkedin_url = '{{ String($json['LinkedIn URL'] ?? '').replace(/'/g, \"''\") }}';\nSQL"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        496
+      ],
+      "id": "f5f0406a-5d59-4ab4-a933-c18116e4b097",
+      "name": "SQLite – Nudged"
+    },
+    {
+      "parameters": {
+        "executeOnce": false,
+        "command": "=sqlite3 \"$HOME/lead-engine/leads.db\" <<'SQL'\nINSERT INTO leads (full_name, company, job_title, linkedin_url, email, lead_score, score_reasoning, tier, status, updated_at)\nVALUES (\n  '{{ String($('Loop Over Items').item.json['Name'] ?? '').replace(/'/g, \"''\") }}',\n  '{{ String($('Loop Over Items').item.json['Company'] ?? '').replace(/'/g, \"''\") }}',\n  '{{ String($('Loop Over Items').item.json['Job Title'] ?? '').replace(/'/g, \"''\") }}',\n  '{{ String($('Loop Over Items').item.json['LinkedIn URL'] ?? '').replace(/'/g, \"''\") }}',\n  '{{ String($('Loop Over Items').item.json['Email'] ?? '').replace(/'/g, \"''\") }}',\n  {{ Number($json.score) || 0 }},\n  '{{ String($json.reasoning ?? '').replace(/'/g, \"''\") }}',\n  '{{ ($json.score >= 70 && $json.qualified) ? 'Hot' : 'Cold' }}',\n  'Scored',\n  CURRENT_TIMESTAMP\n)\nON CONFLICT(linkedin_url) DO UPDATE SET\n  full_name = excluded.full_name,\n  company = excluded.company,\n  job_title = excluded.job_title,\n  email = excluded.email,\n  lead_score = excluded.lead_score,\n  score_reasoning = excluded.score_reasoning,\n  tier = excluded.tier,\n  updated_at = CURRENT_TIMESTAMP;\nSQL"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -304
+      ],
+      "id": "4f36c84f-a8e6-4acb-b3fa-0c18cbb45a4f",
+      "name": "Save Lead to SQLite"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM",
+          "mode": "list",
+          "cachedResultName": "Leads",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 877793747,
+          "mode": "list",
+          "cachedResultName": "leads-template",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KWRPiCuuyXmvq-LfquCmCr-XlcVMwkxuPmSHPVbhasM/edit#gid=877793747"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "LinkedIn URL": "={{ $('Watch Leads Sheet').item.json['LinkedIn URL'] }}",
+            "Status": "Replied"
+          },
+          "matchingColumns": [
+            "LinkedIn URL"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Job Title",
+              "displayName": "Job Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LinkedIn URL",
+              "displayName": "LinkedIn URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Source",
+              "displayName": "Source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Date Added",
+              "displayName": "Date Added",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Headcount",
+              "displayName": "Headcount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Company Summary",
+              "displayName": "Company Summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "Icebreaker",
+              "displayName": "Icebreaker",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3152,
+        240
+      ],
+      "id": "2de6d4f9-6a90-44d5-95d2-3f503f8191f7",
+      "name": "Mark Replied",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "1veIL2lvLghytH9V",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Watch Leads Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Score Lead": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Hot or Cold?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Save Lead to SQLite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hot or Cold?": {
+      "main": [
+        [
+          {
+            "node": "Send Outreach Email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mark Hot Leads Contacted",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Cold Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Outreach Email": {
+      "main": [
+        [
+          {
+            "node": "SQLite – Contacted",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Contact in HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Contact in HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Write AI Score to HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Days": {
+      "main": [
+        [
+          {
+            "node": "Check for Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check for Reply": {
+      "main": [
+        [
+          {
+            "node": "Did They Reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Did They Reply?": {
+      "main": [
+        [
+          {
+            "node": "AI Draft Reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Follow-up Nudge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Score Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Draft Reply": {
+      "main": [
+        [
+          {
+            "node": "Send AI Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send AI Reply": {
+      "main": [
+        [
+          {
+            "node": "Log Reply in HubSpot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Score Note": {
+      "main": [
+        [
+          {
+            "node": "Wait 2 Days",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write AI Score to HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Add Score Note",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Follow-up Nudge": {
+      "main": [
+        [
+          {
+            "node": "Mark Nudged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Reply in HubSpot": {
+      "main": [
+        [
+          {
+            "node": "Mark Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Cold Leads": {
+      "main": [
+        [
+          {
+            "node": "SQLite – Mark Cold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQLite – Contacted": {
+      "main": [
+        []
+      ]
+    },
+    "Mark Nudged": {
+      "main": [
+        [
+          {
+            "node": "SQLite – Nudged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Replied": {
+      "main": [
+        [
+          {
+            "node": "SQLite – Replied",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8b6fc9ad-3c89-4395-a3da-ec3fd3bb8d60",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "676deb82e6ba66f45faf9996dd16aaf7b4a18e2b8ecc1a64940048896ffb5bba"
+  },
+  "nodeGroups": [],
+  "id": "F1lFL4kaqhUAHCmN",
+  "tags": []
+}
