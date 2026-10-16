@@ -50,7 +50,7 @@ Lead data is not included in this repo.
 
 ## Business impact
 
-- **Speed to lead:** a new lead is scored and, if Hot, emailed in under [X] seconds of being picked up, instead of waiting in someone's inbox for manual review.
+- **Speed to lead:** the sheet is checked every minute, so a new lead is scored and, if Hot, emailed within minutes of being added, instead of waiting in someone's inbox for manual review.
 - **Reps only work qualified leads:** in a 15-lead test batch, 3 leads were filtered out as Cold before any rep time was spent on them.
 - **Explainable scoring in the CRM:** each HubSpot contact shows the AI score *and* the reason, so a rep can trust it or override it.
 - **No lead falls through the cracks:** every contacted lead gets either an AI-drafted reply or a follow-up nudge, and its status is always up to date.
