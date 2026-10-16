@@ -2,6 +2,12 @@
 
 An AI-powered lead qualification and outreach system built in **n8n**. It scores inbound leads with Gemini, routes them by fit, runs personalised outreach with follow-up, logs everything to HubSpot, and stores the full lead lifecycle in SQLite for RevOps reporting.
 
+## The problem
+
+Inbound leads often sit in a spreadsheet or inbox for hours before anyone looks at them. By then, interest has cooled. Reps also waste time on leads that were never a fit, and follow-ups get forgotten.
+
+This engine fixes that: it scores every lead the moment it arrives, lets only qualified leads reach outreach, and automatically replies or follows up with every contacted lead.
+
 ## What it does
 
 1. **Intake:** watches a Google Sheet for new leads (sourced via Clay).
