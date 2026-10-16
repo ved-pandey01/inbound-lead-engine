@@ -2,6 +2,9 @@
 
 An AI-powered lead qualification and outreach system built in **n8n**. It scores inbound leads with Gemini, routes them by fit, runs personalised outreach with follow-up, logs everything to HubSpot, and stores the full lead lifecycle in SQLite for RevOps reporting.
 
+<img width="1272" height="784" alt="Inbound Lead Engine n8n workflow" src="https://github.com/user-attachments/assets/71f988b4-8d70-49a9-9b28-1f7e2021865e" />
+
+
 ## The problem
 
 Inbound leads often sit in a spreadsheet or inbox for hours before anyone looks at them. By then, interest has cooled. Reps also waste time on leads that were never a fit, and follow-ups get forgotten.
