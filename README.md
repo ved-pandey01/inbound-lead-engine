@@ -48,7 +48,24 @@ Lead data is not included in this repo.
 4. Replace `YOUR_GEMINI_API_KEY` in the AI Score Lead and AI Draft Reply nodes.
 5. Connect your Google Sheets, Gmail and HubSpot credentials.
 
-## What I learned
-- Debugging n8n item linking: after Wait and Gmail steps, expressions referencing earlier nodes can resolve empty, so later nodes read from their direct input instead.
-- Tracing a silent failure (sheet updates returning no output) to a node pointing at an old copy of the spreadsheet.
-- Designing the qualification gate so the AI's judgement, not just the score, decides routing.
+## Business impact
+
+- **Speed to lead:** every new lead is scored and, if Hot, contacted automatically, with no manual triage queue.
+- **Reps only work qualified leads:** in a 15-lead test batch, 3 leads were filtered out as Cold before any rep time was spent on them.
+- **Explainable scoring in the CRM:** each HubSpot contact shows the AI score *and* the reason, so a rep can trust it or override it.
+- **No lead falls through the cracks:** every contacted lead gets either an AI-drafted reply or a follow-up nudge, and its status is always up to date.
+- **Account-level insight:** the reporting flagged Twine and what3words as accounts with 2 Hot leads each, ready for a multi-threaded approach.
+
+## Key design decisions
+
+1. **Score + qualified gate.** A high score alone isn't enough. A lead must score 70+ *and* be marked qualified, which stops false positives such as vendor employees.
+2. **Stable matching.** Sheet rows are matched on LinkedIn URL, not row number, so sorting or deleting rows never breaks updates.
+3. **Database for reporting.** Google Sheets shows the current status but overwrites history. SQLite keeps timestamps, which makes reply rate and funnel reporting possible.
+4. **Every branch tested end to end.** Cold, Contacted, Replied and Nudged paths were each run with test leads, because the worst bugs fail silently.
+5. **No secrets in the repo.** API keys are replaced with placeholders before publishing.
+
+## What I'd build next
+- Slack alert when a Hot lead arrives
+- A/B testing of outreach email copy
+- Reply rate broken down by industry and job title
+- Moving from SQLite to Postgres for multi-user reporting
